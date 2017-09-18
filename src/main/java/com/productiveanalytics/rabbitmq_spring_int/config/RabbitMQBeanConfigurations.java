@@ -15,12 +15,20 @@ import org.springframework.context.annotation.Scope;
 
 import org.springframework.core.annotation.Order;
 
+import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.DefaultClassMapper;
+import org.springframework.amqp.support.converter.JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.support.RetryTemplate;
+
 import org.springframework.util.Assert;
+
+import org.codehaus.jackson.map.ObjectMapper;
 
 import com.productiveanalytics.rabbitmq_spring_int.config.lifecycle.ChannelLifeCycleListener;
 import com.productiveanalytics.rabbitmq_spring_int.constants.RabbitMQSpringConstants;
@@ -50,15 +58,14 @@ public class RabbitMQBeanConfigurations
 		 * 				   @Autowired w/ @Qualifier("rabbitMQProperties")
 		 */
 //	@Resource(name="rabbitMQProperties") 
-//	Properties rabbitmqProps;
+//	private Properties rabbitmqProps;
 	/*
 	 * @Autowired is from Spring framework, and it has same behavior as JavaX's @Inject
 	 * Precedence : Match by Type > Match by Qualifier > Match by Name
 	 */
 	@Autowired
 	@Qualifier("rabbitMQProperties")	
-	Properties rabbitmqProps;
-	
+	private Properties rabbitmqProps;
 	
 //	@Resource 
 		/* 
@@ -66,7 +73,7 @@ public class RabbitMQBeanConfigurations
 		 * 		 Solution: Use @Autowired 
 		 */
 	@Autowired
-	org.springframework.amqp.rabbit.connection.ConnectionFactory rabbitmqConnectionFactory;
+	private org.springframework.amqp.rabbit.connection.ConnectionFactory rabbitmqConnectionFactory;
 	
 	public void afterPropertiesSet() throws Exception {
 		/*
@@ -98,10 +105,36 @@ public class RabbitMQBeanConfigurations
     	return connectionFactory;
 	}
 	
+	@Bean(name="rabbitmqAdmin")
+	@Scope("singleton")
+	public AmqpAdmin getAMQPAdmin() {
+		return new RabbitAdmin(rabbitmqConnectionFactory);
+	}
+	
 	@Bean(name="rabbitmqTemplate")
 	@Scope("singleton")
-	public RabbitTemplate getAMQPTemplate() throws IOException 
+	public RabbitTemplate getRabbitMQTemplate() throws IOException 
 	{
+		String exchangeName = rabbitmqProps.getProperty(RabbitMQSpringConstants.PROP_EXCHANGE_NAME);
+		String queueName	= rabbitmqProps.getProperty(RabbitMQSpringConstants.PROP_QUEUE_NAME);
+		
+		return getAMQPTemplate(exchangeName, queueName);
+	}
+	
+	@Bean(name="defaultMessageConverter")
+	public MessageConverter getMessageConverter(){
+		JsonMessageConverter jsonMessageConverter = new JsonMessageConverter();
+		jsonMessageConverter.setClassMapper(new DefaultClassMapper());
+		ObjectMapper jsonObjectMapper = new ObjectMapper();
+		jsonObjectMapper.setDateFormat(RabbitMQSpringConstants.DATE_FORMAT);
+		jsonMessageConverter.setJsonObjectMapper(jsonObjectMapper);
+		return jsonMessageConverter;
+	}
+	
+	private RabbitTemplate getAMQPTemplate(String exchangeName, String queueName)
+	{
+		Assert.notNull(queueName, "QueueName must be provided. FATAL Error!!!");
+		
 		RabbitTemplate template = new RabbitTemplate();
 		
 		/*
@@ -110,9 +143,9 @@ public class RabbitMQBeanConfigurations
 		 */
 		template.setConnectionFactory(/* getRabbitMQConnectionFactory() */ rabbitmqConnectionFactory);
 		
-		template.setExchange(rabbitmqProps.getProperty(RabbitMQSpringConstants.PROP_EXCHANGE_NAME));
-		template.setRoutingKey(rabbitmqProps.getProperty(RabbitMQSpringConstants.PROP_QUEUE_NAME));
-		template.setQueue(rabbitmqProps.getProperty(RabbitMQSpringConstants.PROP_QUEUE_NAME));
+		template.setExchange(exchangeName);
+		template.setRoutingKey(queueName);
+		template.setQueue(queueName);
 		
 		RetryTemplate retryTemplate = new RetryTemplate();
 		
@@ -124,7 +157,7 @@ public class RabbitMQBeanConfigurations
 		retryTemplate.setBackOffPolicy(backOffPolicy);
 		
 		template.setRetryTemplate(retryTemplate);
-		return template;	
+		return template;
 	}
 
 }

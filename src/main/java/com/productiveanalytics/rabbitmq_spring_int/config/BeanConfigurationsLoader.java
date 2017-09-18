@@ -4,7 +4,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 /**
- * Programatic configuration loader based on Annotations
+ * Programmatic configuration loader based on Annotations
  * 
  * @author LChawathe
  *
@@ -27,6 +27,7 @@ public class BeanConfigurationsLoader
 		
 		/*
 		 * Method 2 : Scan packages and load Configuration classes.
+		 * 			  Equivalent of  <context:component-scan base-package="com.productiveanalytics.rabbitmq_spring_int" /> 
 		 */
 		this.appContext = new AnnotationConfigApplicationContext();
 		appContext.scan(BASE_PACKAGE);
