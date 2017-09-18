@@ -4,6 +4,7 @@ import javax.annotation.Resource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
@@ -11,13 +12,17 @@ import org.springframework.amqp.core.MessagePropertiesBuilder;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.support.converter.MessageConverter;
+
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.context.annotation.Scope;
+
 import org.springframework.messaging.converter.MessageConversionException;
+
 import org.springframework.stereotype.Component;
+
 import org.springframework.util.Assert;
 
 import com.productiveanalytics.rabbitmq_spring_int.config.utils.RabbitMQUtility;
@@ -55,6 +60,7 @@ public class MessagingServiceImpl implements MessagingService, InitializingBean
 		boolean startStatus = RabbitMQUtility.startMessageListenerContainer(messageListenerContainer);
 		if (startStatus) {
 			logger.debug("[MessagingService] RabbitMQ/Spring Integration message listener container is running");
+			System.err.println("[MessagingService] RabbitMQ/Spring Integration message listener container is running");
 		}
 	}
 
@@ -64,9 +70,9 @@ public class MessagingServiceImpl implements MessagingService, InitializingBean
 	public boolean sendMessageToRabbitMQ(CustomRequest requestObject)
 	{
 		MessageProperties props = MessagePropertiesBuilder.newInstance()
-				.setContentType(MessageProperties.CONTENT_TYPE_JSON)
-				.setHeader("TYPE", requestObject.getType())
-				.build();
+										.setContentType(MessageProperties.CONTENT_TYPE_JSON)
+										.setHeader("TYPE", requestObject.getType())
+										.build();
 		
 		Message msg = null;
 		try {
