@@ -68,6 +68,9 @@ public class IntegratorApp {
 		reqObj = new CustomRequest(5, "FIVE", Boolean.TRUE, type, "first msg");
 		reqList.add(reqObj);
 		
+		reqObj = new CustomRequest(-99, "Nine9", new Double(99.99), type, "This is Exception test for -ve Id");
+		reqList.add(reqObj);
+		
 //		MessageConverter msgConverter = appCtx.getBean("defaultMessageConverter", MessageConverter.class);
 		
 		MessagingService msgSvc = appCtx.getBean("messagingService", MessagingService.class);

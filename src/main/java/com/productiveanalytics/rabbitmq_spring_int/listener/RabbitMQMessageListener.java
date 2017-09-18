@@ -1,6 +1,8 @@
 package com.productiveanalytics.rabbitmq_spring_int.listener;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import javax.annotation.Resource;
@@ -27,6 +29,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.util.Assert;
 
 import com.productiveanalytics.rabbitmq_spring_int.constants.RabbitMQSpringConstants;
+import com.productiveanalytics.rabbitmq_spring_int.model.CustomRequest;
 import com.rabbitmq.client.Channel;
 
 /**
@@ -80,7 +83,7 @@ public class RabbitMQMessageListener
 	@Bean(name="messageListener")
     public ChannelAwareMessageListener getChannelAwareMessageListener()
     {
-		return new MyChannelAwareMessageListener();
+		return new MyChannelAwareMessageListener(defaultMessageConverter);
     }
 	
 	@Bean(name="messageListenerContainer")
@@ -133,6 +136,44 @@ public class RabbitMQMessageListener
 		private final boolean multiple = false;
 		private final boolean requeue = true;
 		
+		private MessageConverter messageConverter;
+		private Map<Integer, Integer> processingFailureCountMap = new HashMap<Integer, Integer>();
+		
+		MyChannelAwareMessageListener(MessageConverter msgConverter) {
+			this.messageConverter = msgConverter;
+		}
+		
+		private boolean processMessage(Message message)
+		{
+			CustomRequest req = (CustomRequest) this.messageConverter.fromMessage(message);
+			
+			Assert.notNull(req, "Parsing of incoming message is unsuccessful");
+			
+			int objId = req.getId();
+			
+			if (objId < 0) {
+				Integer key = new Integer(objId);
+				int failureCount = 0;
+				if (!processingFailureCountMap.containsKey(key)) {
+					processingFailureCountMap.put(key, new Integer(0));
+				} 
+				failureCount = processingFailureCountMap.get(key);
+				++failureCount;
+				processingFailureCountMap.put(key, failureCount);
+				
+				// To break infinite re-queueing on Exception, after 3 failures, provide NACK to allow de-queuing.
+				if (failureCount <= 3)
+					throw new RuntimeException("Simulating the Exception with -ve Id");
+				else {
+					System.out.println("Send NACK and STOP processing for "+ objId);
+					return false;
+				}
+			}
+			
+			// Simulate complex processing that may fail sometimes
+			return (objId % 2 == 1);
+		}
+		
 		public void onMessage(Message message, Channel channel) throws Exception 
 		{
 			long deliveryTag = message.getMessageProperties().getDeliveryTag();
@@ -141,16 +182,23 @@ public class RabbitMQMessageListener
 			
 			try 
 			{
-//				if (successfullyProcessed)
+				if (processMessage(message))
 				{
+					System.out.println("+++++++++> ACK : Channel#"+ channel.getChannelNumber() +" Message: "+ message);
+					
+					// Successful processing, so Acknowledge
 					channel.basicAck(deliveryTag, multiple);
 				}
-//				else
+				else
 				{
-					channel.basicNack(deliveryTag, multiple, requeue);
+					System.out.println("---------> NACK: Channel#"+ channel.getChannelNumber() +" Message: "+ message);
+					
+					// Received the message, and processing, though not successfully. So do Negative Acknowledgement.
+					channel.basicNack(deliveryTag, multiple, false /* requeue */);
 				}
 			}
 			catch (Exception ex) {
+				System.err.println("---------> NACK : Channel#"+ channel.getChannelNumber() +" Message: "+ message);
 				channel.basicNack(deliveryTag, multiple, requeue);
 			}
 		}
