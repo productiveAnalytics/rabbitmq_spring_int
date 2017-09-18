@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.core.annotation.Order;
+import org.springframework.util.Assert;
 
 import com.productiveanalytics.rabbitmq_spring_int.constants.RabbitMQSpringConstants;
 
@@ -41,18 +42,14 @@ public class CommonBeanConfigurations
 	{
 		Properties properties = new Properties();
 		
-		String rabbitPropertyFilename;
-		
+		InputStream inputStream;
 		if (RABBIT_PROPERTIES != null && RABBIT_PROPERTIES.trim().length() > 0) {
-			rabbitPropertyFilename = RABBIT_PROPERTIES;
+			inputStream = new FileInputStream(RABBIT_PROPERTIES);
 		} else {
-			File defaultPropertyFile = new File(DEFAULT_PROPERTY_FILE_NAME); 
-			System.out.println("Using default file: "+ defaultPropertyFile.getCanonicalPath());
-			rabbitPropertyFilename = DEFAULT_PROPERTY_FILE_NAME;
+			inputStream = getClass().getResourceAsStream("/"+ DEFAULT_PROPERTY_FILE_NAME);
 		}
 		
-		
-		InputStream inputStream = new FileInputStream(rabbitPropertyFilename);
+		Assert.notNull(inputStream, "InSteam must not be null here");
 		properties.load(inputStream);
 		
 		System.out.println(RabbitMQSpringConstants.PROP_HOST +"="+ properties.getProperty(RabbitMQSpringConstants.PROP_HOST));
